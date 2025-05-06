@@ -2,62 +2,81 @@
 <html lang="zh-CN">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>上传文件测试</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>上传文件测试</title>
 
-    <!-- Vue 3 CDN -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <!-- Axios CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <!-- Vue 3 CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <!-- Axios CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <!-- tailwindcss CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
 <body>
-    <div id="app">
-        <h2>文件上传</h2>
-        <input type="file" @change="onFileChange" />
-        <button @click="upload">上传</button>
-    </div>
+  <div id="app">
+    <h2>文件上传</h2>
+    <input type="file" @change="onFileChange" />
+    <button @click="upload">上传</button>
+    <h2 v-if="fileList.length != 0">已上传文件列表</h2>
+    <ul>
+      <li v-for="filename in fileList" class="text-blue-600 cursor-pointer hover:underline"> {{ filename }}</li>
+    </ul>
+  </div>
 
 
-    <script>
-        const { createApp } = Vue;
-        const app = createApp({
-            data() {
-                return {
-                    selectedFile: null,
-                    message: ""
-                };
-            },
-            methods: {
-                onFileChange(event) {
-                    this.selectedFile = event.target.files[0];
-                },
-                async upload() {
-                    if (!this.selectedFile) {
-                        alert("请先选择一个文件!");
-                        return;
-                    }
+  <script>
+    const { createApp } = Vue;
+    const app = createApp({
+      data() {
+        return {
+          selectedFile: null,
+          message: "",
+          fileList: []
+        };
+      },
+      methods: {
+        onFileChange(event) {
+          this.selectedFile = event.target.files[0];
+        },
+        async upload() {
+          if (!this.selectedFile) {
+            alert("请先选择一个文件!");
+            return;
+          }
 
-                    const formData = new FormData()
-                    formData.append("file", this.selectedFile);
+          const formData = new FormData()
+          formData.append("file", this.selectedFile);
 
-                    try {
-                        const response = await axios.post("http://localhost:8000/file/upload", formData, {
-                            headers: {
-                                "Content-Type": "multipart/form-data"
-                            }
-                        });
+          try {
+            const response = await axios.post("http://localhost:8000/file/upload", formData, {
+              headers: {
+                "Content-Type": "multipart/form-data"
+              }
+            });
 
-                        this.message = `上传成功`;
-                    } catch (error) {
-                        this.message = `上传失败`;
-                    }
-                }
-            }
-        });
-        app.mount("#app");
-    </script>
+            this.message = `上传成功`;
+            await listFiles();
+          } catch (error) {
+            this.message = `上传失败`;
+          }
+        },
+        async listFiles() {
+          try {
+            const response = await axios.get("http://localhost:8000/files");
+            this.fileList = response.data.filenames;
+          } catch (error) {
+            console.log(error);
+          }
+        }
+      },
+      mounted() {
+        this.listFiles();
+      }
+    });
+    app.mount("#app");
+  </script>
 </body>
 
 </html>

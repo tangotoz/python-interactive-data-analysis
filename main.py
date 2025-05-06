@@ -1,3 +1,4 @@
+from typing import List
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -22,6 +23,10 @@ UPLOAD_DIR = "./uploads"
 
 class FileName(BaseModel):
     filename: str
+
+class FileListResponse(BaseModel):
+    filenames: List[str]
+
 
 @app.post("/file/upload")
 async def upload(file: UploadFile = File(...)):
@@ -73,6 +78,7 @@ async def clean_data(file: FileName):
 
     cleaned_filename = f"cleaned_{file.filename}"
     cleaned_path = os.path.join(UPLOAD_DIR, cleaned_filename)
+    cleaned_rows = df_cleaned.shape[0]
 
     df_cleaned.to_csv(cleaned_path, index=False)
 
@@ -85,6 +91,21 @@ async def clean_data(file: FileName):
         "cleaned_file": cleaned_filename
     }
 
+@app.get("/files", response_model=FileListResponse)
+async def list_uploaded_files():
+    # 确保上传文件夹有效
+    if not os.path.exists(UPLOAD_DIR):
+        return FileListResponse(filenames=[])
+    
+    # 获取所有文件（忽略文件夹）
+    filenames = [
+        f for f in os.listdir(UPLOAD_DIR)
+        if os.path.isfile(os.path.join(UPLOAD_DIR, f))
+    ]
+
+    return {
+        "filenames": filenames
+    }
 
 if __name__ == "__main__":
     import uvicorn
