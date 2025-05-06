@@ -21,8 +21,26 @@
     <button @click="upload">上传</button>
     <h2 v-if="fileList.length != 0">已上传文件列表</h2>
     <ul>
-      <li v-for="filename in fileList" class="text-blue-600 cursor-pointer hover:underline"> {{ filename }}</li>
+      <li v-for="filename in fileList" @click="previewFile(filename)"
+        class="text-blue-600 cursor-pointer hover:underline"> {{ filename }}</li>
     </ul>
+
+    <div v-if="previewContent.length > 0">
+      <div class="flex justify-center items-center mt-6 mb-4">
+        <h3 class="text-lg font-semibold">文件预览：</h3>
+        <button class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">清洗数据</button>
+      </div>
+      <div class="overflow-x-auto rounded-lg shadow"></div>
+      <table class="min-w-full bg-white">
+        <tbody>
+          <tr v-for="(row, rowIndex) in previewContent" :key="rowIndex" class="hover:bg-gray-50">
+            <td v-for="(cell, cellIndex) in row" :key="cellIndex"
+              class="px-4 py-2 whitespace-nowrap border border-gray-200 text-center">
+              {{ cell }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
 
@@ -33,7 +51,8 @@
         return {
           selectedFile: null,
           message: "",
-          fileList: []
+          fileList: [],
+          previewContent: []
         };
       },
       methods: {
@@ -68,6 +87,16 @@
             this.fileList = response.data.filenames;
           } catch (error) {
             console.log(error);
+          }
+        },
+        async previewFile(filename) {
+          try {
+            const response = await axios.get("http://localhost:8000/file/preview", {
+              params: { filename }
+            })
+            this.previewContent = response.data.content;
+          } catch (error) {
+            alert("预览失败: " + error.response?.data?.detail || error.message);
           }
         }
       },

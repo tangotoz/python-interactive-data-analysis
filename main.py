@@ -1,9 +1,12 @@
-from typing import List
-from fastapi import FastAPI, UploadFile, File
+from typing import List, Optional
+from fastapi import FastAPI, UploadFile, HTTPException, status, Query, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import pandas as pd
+import csv # 处理 CSV 文件
+import openpyxl # 处理 xlsx 文件
+import xlrd # 处理 xls 文件 
 import os
 
 app = FastAPI(
@@ -20,12 +23,6 @@ app.add_middleware(
 )
 
 UPLOAD_DIR = "./uploads"
-
-class FileName(BaseModel):
-    filename: str
-
-class FileListResponse(BaseModel):
-    filenames: List[str]
 
 
 @app.post("/file/upload")
@@ -47,8 +44,8 @@ async def upload(file: UploadFile = File(...)):
     }
 
 @app.post("/file/clean")
-async def clean_data(file: FileName):
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
+async def clean_data(filename: Optional[str] = Query(default=None)):
+    file_path = os.path.join(UPLOAD_DIR, filename)
 
     if not os.path.exists(file_path):
         return {
@@ -57,9 +54,9 @@ async def clean_data(file: FileName):
     
     # 尝试读取位 CSV 或 Excel
     try:
-        if file.filename.endswith(".csv"):
+        if filename.endswith(".csv"):
             df = pd.read_csv(file_path)
-        elif file.filename.endswith(".xlsx") or file.filename.endswith(".xls"):
+        elif filename.endswith(".xlsx") or filename.endswith(".xls"):
             df = pd.read_excel(file_path)
         else:
             return {
@@ -91,11 +88,13 @@ async def clean_data(file: FileName):
         "cleaned_file": cleaned_filename
     }
 
-@app.get("/files", response_model=FileListResponse)
-async def list_uploaded_files():
+@app.get("/files")
+async def list_uploaded_files() :
     # 确保上传文件夹有效
     if not os.path.exists(UPLOAD_DIR):
-        return FileListResponse(filenames=[])
+        return {
+            "filenames": []
+        }
     
     # 获取所有文件（忽略文件夹）
     filenames = [
@@ -107,6 +106,36 @@ async def list_uploaded_files():
         "filenames": filenames
     }
 
+@app.get("/file/preview")
+async def preview_file(filename: Optional[str] = Query(default=None)):
+    filepath = os.path.join(UPLOAD_DIR, filename)
+
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文件不存在")
+    
+    if filename.endswith(".csv"):
+        with open(filepath, mode="r", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            content = list(reader)
+        return {"type": "csv", "content": content}
+    elif filename.endswith(".xlsx"):
+        wb = openpyxl.load_workbook(filepath, read_only=True)
+        sheet = wb.active
+        content = [[cell.value for cell in row] for row in sheet.iter_rows()]
+        return {"type": "csv", "content": content}
+    elif filename.endswith(".xls"):
+        wb = xlrd.open_workbook(filepath)
+        sheet = wb.sheet_by_index(0)
+        content = [
+            [sheet.cell_value(r, c) for c in range(sheet.ncols)]
+            for r in range(sheet.nrows)
+        ]
+        return {"type": "xls", "content": content}
+
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="不支持文件类型")
+
+                            
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", reload=True)
