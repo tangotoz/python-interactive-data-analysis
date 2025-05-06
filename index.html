@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>上传文件测试</title>
+
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Axios CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <h2>文件上传</h2>
+        <input type="file" @change="onFileChange" />
+        <button @click="upload">上传</button>
+    </div>
+
+
+    <script>
+        const { createApp } = Vue;
+        const app = createApp({
+            data() {
+                return {
+                    selectedFile: null,
+                    message: ""
+                };
+            },
+            methods: {
+                onFileChange(event) {
+                    this.selectedFile = event.target.files[0];
+                },
+                async upload() {
+                    if (!this.selectedFile) {
+                        alert("请先选择一个文件!");
+                        return;
+                    }
+
+                    const formData = new FormData()
+                    formData.append("file", this.selectedFile);
+
+                    try {
+                        const response = await axios.post("http://localhost:8000/file/upload", formData, {
+                            headers: {
+                                "Content-Type": "multipart/form-data"
+                            }
+                        });
+
+                        this.message = `上传成功`;
+                    } catch (error) {
+                        this.message = `上传失败`;
+                    }
+                }
+            }
+        });
+        app.mount("#app");
+    </script>
+</body>
+
+</html>
