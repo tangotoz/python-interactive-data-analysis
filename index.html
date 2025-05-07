@@ -18,7 +18,7 @@
   <div id="app">
     <h2>文件上传</h2>
     <input type="file" @change="onFileChange" />
-    <button @click="upload">上传</button>
+    <button type="button" @click="upload">上传</button>
     <h2 v-if="fileList.length != 0">已上传文件列表</h2>
     <ul>
       <li v-for="filename in fileList" @click="previewFile(filename)"
@@ -28,18 +28,32 @@
     <div v-if="previewContent.length > 0">
       <div class="flex justify-center items-center mt-6 mb-4">
         <h3 class="text-lg font-semibold">文件预览：</h3>
-        <button class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">清洗数据</button>
+        <button type="button" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+          @click="cleanFile(selectedPreviewFile, $event)">清洗数据</button>
       </div>
-      <div class="overflow-x-auto rounded-lg shadow"></div>
-      <table class="min-w-full bg-white">
-        <tbody>
-          <tr v-for="(row, rowIndex) in previewContent" :key="rowIndex" class="hover:bg-gray-50">
-            <td v-for="(cell, cellIndex) in row" :key="cellIndex"
-              class="px-4 py-2 whitespace-nowrap border border-gray-200 text-center">
-              {{ cell }}</td>
-          </tr>
-        </tbody>
-      </table>
+
+      <!-- 显示清洗结果 -->
+      <div v-if="cleanResult" class="mt-4 p-4 border rounded bg-gray-50 text-sm">
+        <p><strong>清洗消息：</strong>{{ cleanResult.message }}</p>
+        <p><strong>原始行数：</strong>{{ cleanResult.original_shape[0] }}</p>
+        <p><strong>原始列数：</strong>{{ cleanResult.original_shape[1] }}</p>
+        <p><strong>缺失值数量：</strong>{{ cleanResult.missing_values }}</p>
+        <p><strong>重复行数：</strong>{{ cleanResult.duplicated_rows }}</p>
+        <p><strong>清洗后行数：</strong>{{ cleanResult.cleaned_rows }}</p>
+        <p><strong>清洗后文件名：</strong>{{ cleanResult.cleaned_file }}</p>
+      </div>
+
+      <div class="overflow-x-auto rounded-lg shadow">
+        <table class="min-w-full bg-white">
+          <tbody>
+            <tr v-for="(row, rowIndex) in previewContent" :key="rowIndex" class="hover:bg-gray-50">
+              <td v-for="(cell, cellIndex) in row" :key="cellIndex"
+                class="px-4 py-2 whitespace-nowrap border border-gray-200 text-center">
+                {{ cell }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -52,7 +66,9 @@
           selectedFile: null,
           message: "",
           fileList: [],
-          previewContent: []
+          previewContent: [],
+          selectedPreviewFile: null,
+          cleanResult: null
         };
       },
       methods: {
@@ -76,7 +92,7 @@
             });
 
             this.message = `上传成功`;
-            await listFiles();
+            await this.listFiles();
           } catch (error) {
             this.message = `上传失败`;
           }
@@ -95,8 +111,30 @@
               params: { filename }
             })
             this.previewContent = response.data.content;
+            this.selectedPreviewFile = filename;
+            this.cleanResult = null; // 清除旧的清洗结果
           } catch (error) {
             alert("预览失败: " + error.response?.data?.detail || error.message);
+          }
+        },
+        async cleanFile(filename, event) {
+          if (event) {
+            event.preventDefault();
+          }
+          
+          if (!filename) {
+            alert("请先选择要预览的文件");
+            return;
+          }
+
+          try {
+            const response = await axios.post("http://localhost:8000/file/clean", null, {
+              params: { filename }
+            });
+            this.cleanResult = response.data;
+            await this.listFiles(); // 清洗完成后更新文件列表
+          } catch (error) {
+            alert("清洗失败: " + (error.response?.data?.error || error.message));
           }
         }
       },

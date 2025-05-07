@@ -22,8 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-UPLOAD_DIR = "./uploads"
-
+UPLOAD_DIR = "C:\\Users\\tango\\Desktop\\uploads"
 
 @app.post("/file/upload")
 async def upload(file: UploadFile = File(...)):
@@ -73,14 +72,14 @@ async def clean_data(filename: Optional[str] = Query(default=None)):
     # 执行简单的数据清洗：去除缺失值和重复行
     df_cleaned = df.dropna().drop_duplicates()
 
-    cleaned_filename = f"cleaned_{file.filename}"
+    cleaned_filename = f"cleaned_{filename}"
     cleaned_path = os.path.join(UPLOAD_DIR, cleaned_filename)
     cleaned_rows = df_cleaned.shape[0]
 
     df_cleaned.to_csv(cleaned_path, index=False)
 
     return {
-        "message": f"{file.filename} 数据清洗完成",
+        "message": f"{filename} 数据清洗完成",
         "original_shape": [original_rows, original_cols],
         "missing_values": missing_values,
         "duplicated_rows": duplicated_rows,
