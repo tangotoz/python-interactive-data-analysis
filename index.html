@@ -30,6 +30,8 @@
         <h3 class="text-lg font-semibold">文件预览：</h3>
         <button type="button" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
           @click="cleanFile(selectedPreviewFile, $event)">清洗数据</button>
+        <button type="button" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 ml-4"
+          @click="visualizeFile(selectedPreviewFile)">可视化数据</button>
       </div>
 
       <!-- 显示清洗结果 -->
@@ -41,6 +43,17 @@
         <p><strong>重复行数：</strong>{{ cleanResult.duplicated_rows }}</p>
         <p><strong>清洗后行数：</strong>{{ cleanResult.cleaned_rows }}</p>
         <p><strong>清洗后文件名：</strong>{{ cleanResult.cleaned_file }}</p>
+      </div>
+
+      <!-- 显示可视化结果 -->
+      <div v-if="visualCharts" class="mt-6">
+        <h3 class="text-lg font-semibold mb-2">数据可视化图表</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div v-for="(img, name) in visualCharts" :key="name">
+            <p class="text-center font-medium mb-1">{{ chartNameMap[name] }}</p>
+            <img :src="'data:image/png;base64,' + img" class="w-full border rounded-none shadow">
+          </div>
+        </div>
       </div>
 
       <div class="overflow-x-auto rounded-lg shadow">
@@ -68,7 +81,13 @@
           fileList: [],
           previewContent: [],
           selectedPreviewFile: null,
-          cleanResult: null
+          cleanResult: null,
+          visualCharts: null,
+          chartNameMap: {
+            bar_chart: "柱形图",
+            line_chart: "折线图",
+            heatmap: "热力图",
+          }
         };
       },
       methods: {
@@ -121,7 +140,7 @@
           if (event) {
             event.preventDefault();
           }
-          
+
           if (!filename) {
             alert("请先选择要预览的文件");
             return;
@@ -135,6 +154,21 @@
             await this.listFiles(); // 清洗完成后更新文件列表
           } catch (error) {
             alert("清洗失败: " + (error.response?.data?.error || error.message));
+          }
+        },
+        async visualizeFile(filename) {
+          if (!filename) {
+            alert("请先选择要预览的文件");
+            return;
+          }
+
+          try {
+            const response = await axios.get("http://localhost:8000/file/visualize", {
+              params: { filename }
+            });
+            this.visualCharts = response.data.charts;
+          } catch (error) {
+            alert("可视化失败：" + (error.response?.data?.error || error.message));
           }
         }
       },

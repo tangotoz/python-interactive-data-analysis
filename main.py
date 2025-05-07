@@ -4,10 +4,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 import csv # 处理 CSV 文件
 import openpyxl # 处理 xlsx 文件
 import xlrd # 处理 xls 文件 
+import io
 import os
+import base64
 
 app = FastAPI(
     title="交互式数据分析系统API",
@@ -133,8 +137,74 @@ async def preview_file(filename: Optional[str] = Query(default=None)):
 
     else:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="不支持文件类型")
+    
+@app.get("/file/visualize")
+async def visualize_file(filename: Optional[str] = Query(default=None)):
+    file_path = os.path.join(UPLOAD_DIR, filename)
 
-                            
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文件没有找到")
+
+
+    # 读取 csv 或者 excel 文件
+    try:
+        if filename.endswith(".csv"):
+            df = pd.read_csv(file_path)
+        elif filename.endswith(".xlsx") or filename.endswith(".xls"):
+            df = pd.read_excel(file_path)
+        else:
+            return {
+                "error": "不支持的文件格式",
+            }
+    except Exception as e:
+        return {
+            "error": f"文件读取失败{str(e)},"
+        }
+
+    numeric_df = df.select_dtypes(include=["number"])
+
+    if numeric_df.empty:
+        return {
+            "error": "文件中没有可用于可视化的数值型数据",
+        }
+    
+    charts = {}
+    def fig_to_base64():
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png")
+        buf.seek(0)
+        return base64.b64encode(buf.read()).decode("utf-8")
+    
+    # 图1: 条形图（取前两列）
+    plt.figure(figsize=(6,4))
+    numeric_df.iloc[:, :2].plot(kind="bar")
+    plt.title("Bar Chart")
+    plt.tight_layout()
+    charts["bar_chart"] = fig_to_base64()
+    plt.close()
+
+    # 图2: 折线图
+    plt.figure(figsize=(6,4))
+    numeric_df.plot(kind="line")
+    plt.title("Line Chart")
+    plt.tight_layout()
+    charts["line_chart"] = fig_to_base64()
+    plt.close()
+
+    # 图3: 热力图
+    plt.figure(figsize=(6,4))
+    sns.heatmap(numeric_df.corr(), annot=True, cmap="coolwarm")
+    plt.title("Correlation Heatmap")
+    plt.tight_layout()
+    charts["heatmap"] = fig_to_base64()
+    plt.close()
+
+    return {
+        "message": f"{filename} 可视化图表生成成功",
+        "charts": charts  # 每个键是 base64 编码的 PNG 图片
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", reload=True)
